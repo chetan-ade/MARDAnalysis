@@ -1,5 +1,6 @@
 package submit_a3;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 
@@ -46,6 +47,118 @@ public class MhpAnalysis extends SceneTransformer {
 
     }
     
+    ArrayList < NodePEG > getVarAccesses(HashSet<Node> queryVarObjs, PEG peg) {
+    	
+    	HashSet < NodePEG > varAccess = new HashSet < NodePEG > ();
+
+    	for(NodePEG n : peg.successors.keySet()) {
+    		
+    		Unit u = n.unit;
+    		Stmt s = (Stmt) u;
+    		
+    		if(s instanceof DefinitionStmt) {
+    			
+    			DefinitionStmt ds = (DefinitionStmt) s;
+    		
+    			Value leftOp = ds.getLeftOp();
+    			Value rightOp = ds.getRightOp();
+    			
+    			if(leftOp instanceof FieldRef) {
+    				
+    				
+    				InstanceFieldRef leftOpFieldRef = (InstanceFieldRef) leftOp;
+    				Value left = leftOpFieldRef.getBase();
+    				
+    				HashSet < Node > valObjs = peg.findPointsToList((Local) left);
+    				
+    				if(peg.hasIntersection(queryVarObjs, valObjs)) 
+    					varAccess.add(n);
+    				
+    			}
+    			
+    			if(rightOp instanceof FieldRef) {
+    				
+    				InstanceFieldRef rightOpFieldRef = (InstanceFieldRef) rightOp;
+    				Value right = rightOpFieldRef.getBase();
+    				
+    				HashSet < Node > valObjs = peg.findPointsToList((Local) right);
+    				
+    				if(peg.hasIntersection(queryVarObjs, valObjs)) 
+    					varAccess.add(n);
+    				
+    			}
+    			
+    		}
+    	}
+    	
+    	return new ArrayList<NodePEG> (varAccess);
+    }
+    
+    Local strToLocal(String varName, HashSet < SootMethod > methods) {
+    	
+    	Local local = null;
+    	
+    	for(SootMethod method : methods) {
+    		for(Local l : method.getActiveBody().getLocals()) {
+    			
+    			if(l.toString().equals(varName))
+    				local = l;
+    		}
+    	}
+    	
+    	return local;
+    }
+    
+    Boolean runInParallel(NodePEG a, NodePEG b, PEG peg) {
+    	
+    	return (peg.M.get(a).contains(b) || peg.M.get(b).contains(a));
+    
+    }
+    
+    Boolean isWrite(NodePEG n) {
+    	
+    	Unit u = n.unit;
+		Stmt s = (Stmt) u;
+		
+		if(s instanceof DefinitionStmt) {
+			
+			DefinitionStmt ds = (DefinitionStmt) s;
+		
+			Value leftOp = ds.getLeftOp();
+			
+			if(leftOp instanceof FieldRef) 
+				return true;
+			
+		}
+		
+		return false;
+    }
+    
+    String analyseQuery(MhpQuery q, PEG peg, HashSet < SootMethod > methods) {
+    	
+    	String leftVarStr = q.getVar();
+    	Local leftVar = strToLocal(leftVarStr, methods);
+    	
+    	HashSet<Node> queryVarObjs = peg.findPointsToList(leftVar);
+    	ArrayList < NodePEG > varAccesses = getVarAccesses(queryVarObjs, peg);
+    	
+    	for(int i = 0; i < varAccesses.size(); i++) {
+    		for(int j = i + 1; j < varAccesses.size(); j++) {
+    			
+    			NodePEG a = varAccesses.get(i);
+    			NodePEG b = varAccesses.get(j);
+    			
+    			if(runInParallel(a, b, peg)) {
+    				if(isWrite(a) || isWrite(b)) {
+    					return "yes";
+    				}
+    			}
+    		}
+    	}
+    	
+    	return "No";
+    }
+     
     // Soot's Internal Transform Method
     @Override
     protected void internalTransform(String phaseName, Map < String, String > options) {
@@ -54,105 +167,11 @@ public class MhpAnalysis extends SceneTransformer {
         HashSet < SootMethod > methods = findAllFunctions(classes); // Get the List of All Functions 
 
         PEG peg = new PEG(methods); // Create a PEG for the entire program
-
-        // peg.printPEG(); // Print initial state of PEG (without notify edges)
         peg.workListIterate(); // Start the workList Iterate Algorithm
-        peg.printM();
 
         for(int i = 0; i < A3.queryList.size(); i++) {
-        	
         	MhpQuery q = A3.queryList.get(i);
-        	
-        	String leftVarStr = q.getLeftVar();
-        	String rightVarStr = q.getRightVar();
-        	
-        	Local leftVar = null, rightVar = null;
-        	
-        	for(SootMethod method : methods) {
-        		for(Local l : method.getActiveBody().getLocals()) {
-        			
-        			if(l.toString().equals(leftVarStr))
-        				leftVar = l;
-        			if(l.toString().equals(rightVarStr))
-        				rightVar = l;
-        		}
-        	}
-        	
-        	HashSet<Node> leftVarObjs = peg.findPointsToList(leftVar);
-        	HashSet<Node> rightVarObjs = peg.findPointsToList(rightVar);
-        	
-        	System.out.println(" LEFT VAR OBJS = " + leftVarObjs);
-        	System.out.println(" LEFT VAR OBJS = " + rightVarObjs);
-        	
-//        	if(!peg.hasIntersection(leftVarObjs, rightVarObjs)) { // Empty Intersection
-//        		A3.answers[i] = "NO";
-//        		continue;
-//        	}
-        	
-        	
-        	HashSet < NodePEG > leftAccess = new HashSet < NodePEG > ();
-        	HashSet < NodePEG > rightAccess = new HashSet < NodePEG > ();
-        	
-        	for(NodePEG n : peg.successors.keySet()) {
-        		
-        		Unit u = n.unit;
-        		Stmt s = (Stmt) u;
-        		
-        		if(s instanceof DefinitionStmt) {
-        			
-        			DefinitionStmt ds = (DefinitionStmt) s;
-        		
-        			Value leftOp = ds.getLeftOp();
-        			Value rightOp = ds.getRightOp();
-        			
-        			if(leftOp instanceof FieldRef) {
-        				
-        				
-        				InstanceFieldRef leftOpFieldRef = (InstanceFieldRef) leftOp;
-        				Value left = leftOpFieldRef.getBase();
-        				
-        				HashSet < Node > valObjs = peg.findPointsToList((Local) left);
-        				
-        				System.out.println(" LEFT FIELD REF = " + u + " val Objs : " + valObjs);
-        				
-        				
-        				
-        				if(peg.hasIntersection(leftVarObjs, valObjs)) 
-        					leftAccess.add(n);
-        				
-        				if(peg.hasIntersection(rightVarObjs, valObjs))
-        					rightAccess.add(n);
-        				
-        			}
-        			
-        			if(rightOp instanceof FieldRef) {
-        				
-        				InstanceFieldRef rightOpFieldRef = (InstanceFieldRef) rightOp;
-        				Value right = rightOpFieldRef.getBase();
-        				
-        				HashSet < Node > valObjs = peg.findPointsToList((Local) right);
-        				
-        				System.out.println(" RIGHT FIELD REF = " + u + " val Objs : " + valObjs);
-        				
-        				if(peg.hasIntersection(leftVarObjs, valObjs)) 
-        					leftAccess.add(n);
-        				
-        				if(peg.hasIntersection(rightVarObjs, valObjs))
-        					rightAccess.add(n);
-        				
-        			}
-        			
-        		}
-        	}
-        	
-        	System.out.println("LEFT ACCESS : ");
-        	for(NodePEG l : leftAccess)
-        		l.printNode();
-        	
-        	System.out.println("RIGHT ACCESS : ");
-        	for(NodePEG r : rightAccess)
-        		r.printNode();
-        	
+        	A3.answers[i] = analyseQuery(q, peg, methods);
         }
     }
 

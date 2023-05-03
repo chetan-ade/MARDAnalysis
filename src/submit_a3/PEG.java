@@ -607,7 +607,8 @@ public class PEG {
     // The Work List Iterate Algorithm
     void workListIterate() {
 
-        HashSet < NodePEG > workList = initializeWorkList(); // Initialize WorkList         
+        HashSet < NodePEG > workList = initializeWorkList(); // Initialize WorkList    
+        printWorkList(workList);
         Boolean mapUpdated;
         
         do {
@@ -636,6 +637,9 @@ public class PEG {
         			
         			for(NodePEG m : newM) // Reverse Mapping
         				this.M.get(m).add(n);
+        			
+        			
+//        			printM();
         			
         			
         			mapUpdated = true;
@@ -799,13 +803,8 @@ public class PEG {
 	                for (SuccPair successor: successors.get(w))
 	                    m = successor.succNode; // w is a waiting node, then m is the successor of w
 	
-	                if (successors.get(w).size() > 1)
-	                    System.out.println("LOGICAL ERROR : Waiting Node has more than one predecessors" + w.printNode());
 	
 	                if (m.specialProperty.equals("NOTIFIEDENTRY")) { // m should be a notified entry node
-	
-	                    if (n.object == null)
-	                        System.out.println("LOGICAL ERROR : notifySucc(n) n.object is null");
 	
 	                    if (this.hasIntersection(n.object, m.object))
 	                        notifySuccs.add(m); // If n and m have a common object of interest, add m as notify successor of n
@@ -920,7 +919,7 @@ public class PEG {
         return new HashSet < NodePEG > (); // Empty Set Otherwise
     }
 
-    // Computes of KILL of node // TODO
+    // Computes of KILL of node
     HashSet < NodePEG > getLatestKill(NodePEG n) {
 
     	if(isJoinUnit(n.unit) && n.object.size() == 1)  // n is join node with singleton object
@@ -930,7 +929,7 @@ public class PEG {
     	
     	else if(this.isEntryUnit(n.unit) || n.specialProperty.equals("NOTIFIEDENTRY")) { // n is entry or notifiedEntry
     		if(n.object.size() == 1) { // singleton Object
-    			// MONITOR OBJ ???? // TODO
+    			return getMonitorNodes(n);
     		}
     	}
     	
@@ -954,6 +953,44 @@ public class PEG {
     	}
     		
         return new HashSet < NodePEG > (); // Empty Set Otherwise
+    }
+    
+    HashSet < NodePEG > getMonitorNodes(NodePEG n) {
+    	
+    	HashSet < NodePEG > monitorNodes = new HashSet < NodePEG > ();
+    	
+    	HashSet < NodePEG > visited = new HashSet < NodePEG > ();
+    	ArrayList < NodePEG > queue = new ArrayList < NodePEG > ();
+    	
+    	visited.add(n);
+        queue.add(n);
+        
+        while(!queue.isEmpty()) {
+        	
+        	NodePEG topNode = queue.get(0); // Store and pop a node from queue
+            queue.remove(0);
+            
+            for (SuccPair p: successors.get(topNode)) {
+                if (p.succNode.threadID.equals(n.threadID)) {
+                	
+                	if(!(visited.contains(p.succNode))) {
+
+                		visited.add(p.succNode);
+	                    queue.add(p.succNode); 
+                        monitorNodes.add(p.succNode); 
+                        
+                        if(isExitUnit(p.succNode.unit)) {
+                        	this.printMonitorNodes(monitorNodes, n);
+                        	return monitorNodes;
+                        }
+                	}
+                }
+            }
+        }
+    	
+        this.printMonitorNodes(monitorNodes, n);
+    	return monitorNodes;
+    	
     }
     
     HashSet <NodePEG> waitingNodes(Node obj) {
@@ -1013,86 +1050,97 @@ public class PEG {
     	
     }
 
+    void printWorkList(HashSet < NodePEG > workList) {
+    	
+//    	for(NodePEG n : workList)
+//    		System.out.println(n.printNode());
+    	
+    }
+    
     void printM() {
 
-        System.out.println("M MAP\n");
-
-        for (NodePEG n: M.keySet()) {
-        	
-        	if(!n.threadID.equals("main"))
-        		continue;
-        	
-        	if(!(M.get(n).isEmpty())) {
-
-	            System.out.println(n.printNode() + " -----> ");
-	
-	            for (NodePEG m: M.get(n))
-	                System.out.println("\t" + m.printNode());
-        	}
-        }
+//        System.out.println("M MAP\n");
+//
+//        for (NodePEG n: M.keySet()) {
+//        	
+//        	if(!(M.get(n).isEmpty())) {
+//
+//	            System.out.println(n.printNode() + " -----> ");
+//	
+//	            for (NodePEG m: M.get(n))
+//	                System.out.println("\t" + m.printNode());
+//        	}
+//        }
     }
 
     void printOUT() {
 
-        System.out.println("OUT MAP\n");
-
-        for (NodePEG n: OUT.keySet()) {
-
-            System.out.println(n.printNode() + " -----> ");
-
-            for (NodePEG m: OUT.get(n))
-                System.out.println("\t" + m.printNode());
-
-        }
+//        System.out.println("OUT MAP\n");
+//
+//        for (NodePEG n: OUT.keySet()) {
+//
+//            System.out.println(n.printNode() + " -----> ");
+//
+//            for (NodePEG m: OUT.get(n))
+//                System.out.println("\t" + m.printNode());
+//
+//        }
     }
     
     void printNotifySuccs() {
     	
-    	System.out.println("Notify Succs MAP\n");
-
-        for (NodePEG n: NOTIFYSUCCS.keySet()) {
-
-            System.out.println(n.printNode() + " -----> ");
-
-            for (NodePEG m: NOTIFYSUCCS.get(n))
-                System.out.println("\t" + m.printNode());
-
-        }
+//    	System.out.println("Notify Succs MAP\n");
+//
+//        for (NodePEG n: NOTIFYSUCCS.keySet()) {
+//
+//            System.out.println(n.printNode() + " -----> ");
+//
+//            for (NodePEG m: NOTIFYSUCCS.get(n))
+//                System.out.println("\t" + m.printNode());
+//
+//        }
         
     }
     
     void printPEGPerMethod(String threadID) {
 
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ START ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-
-        for (Map.Entry < NodePEG, HashSet < SuccPair >> entry: successors.entrySet()) {
-
-            if (!entry.getKey().threadID.equals(threadID)) // Skip nodes of other threads
-                continue;
-
-            NodePEG node = entry.getKey();
-            HashSet < SuccPair > adjNodes = entry.getValue();
-
-            for (SuccPair pair: adjNodes) {
-
-                NodePEG adjNode = pair.succNode;
-                String edgeType = pair.edgeType;
-
-                System.out.println(node.printNode() + "   --- " + edgeType + " --->   " + adjNode.printNode() + "\n");
-            }
-        }
-
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+//        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ START ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+//
+//        for (Map.Entry < NodePEG, HashSet < SuccPair >> entry: successors.entrySet()) {
+//
+//            if (!entry.getKey().threadID.equals(threadID)) // Skip nodes of other threads
+//                continue;
+//
+//            NodePEG node = entry.getKey();
+//            HashSet < SuccPair > adjNodes = entry.getValue();
+//
+//            for (SuccPair pair: adjNodes) {
+//
+//                NodePEG adjNode = pair.succNode;
+//                String edgeType = pair.edgeType;
+//
+//                System.out.println(node.printNode() + "   --- " + edgeType + " --->   " + adjNode.printNode() + "\n");
+//            }
+//        }
+//
+//        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
     }
 
     void printPEG() {
 
-        printPEGPerMethod("main"); // Print Main function PEG
+//        printPEGPerMethod("main"); // Print Main function PEG
+//
+//        for (int i = 0; i < threadIDCounter; i++)
+//            printPEGPerMethod("Thread-" + i); // Print All Threads PEG
 
-        for (int i = 0; i < threadIDCounter; i++)
-            printPEGPerMethod("Thread-" + i); // Print All Threads PEG
-
+    }
+    
+    void printMonitorNodes(HashSet < NodePEG > monitorNodes, NodePEG n) {
+//    	System.out.println(" MONITOR OBJS FOR START NODE = " + n.printNode());
+//    	
+//    	for(NodePEG monitorNode : monitorNodes)
+//    		System.out.println(monitorNode + "\n");
     }
     
 }
