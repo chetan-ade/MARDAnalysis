@@ -9,6 +9,7 @@ import soot.Local;
 import soot.Scene;
 import soot.SceneTransformer;
 import soot.SootClass;
+import soot.SootField;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
@@ -47,7 +48,7 @@ public class MhpAnalysis extends SceneTransformer {
 
     }
     
-    ArrayList < NodePEG > getVarAccesses(HashSet<Node> queryVarObjs, PEG peg) {
+    ArrayList < NodePEG > getVarAccesses(HashSet<Node> queryVarObjs, PEG peg, String field) {
     	
     	HashSet < NodePEG > varAccess = new HashSet < NodePEG > ();
 
@@ -68,10 +69,11 @@ public class MhpAnalysis extends SceneTransformer {
     				
     				InstanceFieldRef leftOpFieldRef = (InstanceFieldRef) leftOp;
     				Value left = leftOpFieldRef.getBase();
+    				SootField f = leftOpFieldRef.getField();
     				
     				HashSet < Node > valObjs = peg.findPointsToList((Local) left);
     				
-    				if(peg.hasIntersection(queryVarObjs, valObjs)) 
+    				if(peg.hasIntersection(queryVarObjs, valObjs) && f.getName().equals(field)) 
     					varAccess.add(n);
     				
     			}
@@ -80,10 +82,11 @@ public class MhpAnalysis extends SceneTransformer {
     				
     				InstanceFieldRef rightOpFieldRef = (InstanceFieldRef) rightOp;
     				Value right = rightOpFieldRef.getBase();
+    				SootField f = rightOpFieldRef.getField();
     				
     				HashSet < Node > valObjs = peg.findPointsToList((Local) right);
     				
-    				if(peg.hasIntersection(queryVarObjs, valObjs)) 
+    				if(peg.hasIntersection(queryVarObjs, valObjs) && f.getName().equals(field)) 
     					varAccess.add(n);
     				
     			}
@@ -136,11 +139,12 @@ public class MhpAnalysis extends SceneTransformer {
     
     String analyseQuery(MhpQuery q, PEG peg, HashSet < SootMethod > methods) {
     	
-    	String leftVarStr = q.getVar();
-    	Local leftVar = strToLocal(leftVarStr, methods);
+    	String varStr = q.getVar();
+    	Local var = strToLocal(varStr, methods);
+    	String field = q.getField();
     	
-    	HashSet<Node> queryVarObjs = peg.findPointsToList(leftVar);
-    	ArrayList < NodePEG > varAccesses = getVarAccesses(queryVarObjs, peg);
+    	HashSet<Node> queryVarObjs = peg.findPointsToList(var);
+    	ArrayList < NodePEG > varAccesses = getVarAccesses(queryVarObjs, peg, field);
     	
     	for(int i = 0; i < varAccesses.size(); i++) {
     		for(int j = i + 1; j < varAccesses.size(); j++) {
@@ -150,7 +154,7 @@ public class MhpAnalysis extends SceneTransformer {
     			
     			if(runInParallel(a, b, peg)) {
     				if(isWrite(a) || isWrite(b)) {
-    					return "yes";
+    					return "Yes";
     				}
     			}
     		}
